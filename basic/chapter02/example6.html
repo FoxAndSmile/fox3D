@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>example6 - lookAt을 사용해 카메라 이동</title>
+
+    <style>
+        body {
+            /* 전체페이지를 사용하기 위해 margin을 0, overflow를 hidden으로 설정 */
+            margin: 0;
+            overflow: hidden
+        }
+    </style>
+</head>
+<body>
+<div id="webgl-output"></div>
+<div id="stats-output"></div>
+
+<!-- THREE.js -->
+<script src="../resources/three.min.js"></script>
+
+<!-- animation Frame 측정을 위한 lib -->
+<script src="../resources/stats.min.js"></script>
+
+<!-- test를 위한 값의 변경을 쉽게 해주는 lib -->
+<script src="../resources/dat.gui.min.js"></script>
+
+<!-- Three.js 예제 구동 스크립트 -->
+<script>
+    /**
+     * 주요 포인트
+     * position.copy를 통해서 vector3로 position을 설정할 수 있다.
+     * camera의 lookAt을 통해서 카메라가 보는 위치를 설정할 수 있다.`
+     */
+
+    var camera, scene, renderer;
+
+    function init() {
+        // stats 초기화
+        var stats = initStats();
+
+        // scene는 랜더링할 모든 객체와 사용할 모든 광원을 저장하는데 사용되는 컨테이너. 즉 scene가 없으면 아무것도 렌더링 할 수 없다.
+        scene = new THREE.Scene();
+
+        // camera는 랜더링 했을때 어떻게 화면에 보여질 것인지 정의.
+        camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.5, 1000);    // 원근 카메라
+        camera.position.set(120, 60, 180);
+
+        // renderer는 scene객체가 camera객체의 각도에 따라 브라우저에 어떻게 보이는지 산출하는 역할을 담당.
+        // WebGLRender()는 객체를 렌더링 할때 그래픽 카드를 사용하도록 한다는 설정. SVG, CANVAS기반으로 렌더링 할 수 있지만 권장하지 않는다. 이것은 CPU에 과도한 부하를 주거나 material, shadow같은 기능을 사용할 수 없기 때문이다.
+        renderer = new THREE.WebGLRenderer();
+        renderer.setClearColor(0xEEEEEE);   // 배경색을 흰색으로 설정
+        renderer.setSize(window.innerWidth, window.innerHeight);    // 렌더링 크기를 설정.
+
+        // xyz = rgb
+        var axis = new THREE.AxisHelper(150); // 각 축의 길이
+        scene.add(axis);
+
+        // plane : 배경으로 사용할 2차원 사각형
+        var planeGeometry = new THREE.PlaneGeometry(200, 200);    //폭(width) 200, 높이(height) 200
+        var planeMaterial = new THREE.MeshLambertMaterial({color:0xffffff});  // SpotLight(광원을 쓰려먼 MeshLambertMaterial을 사용해야한다.
+        var plane = new THREE.Mesh(planeGeometry, planeMaterial);   // Mesh를 통해 결합
+
+        plane.rotation.x = -0.5 * Math.PI;  // x축으로 90도 회전
+        plane.position.x = 0;
+        plane.position.y = 0;
+        plane.position.z = 0;
+        scene.add(plane);
+
+        var cubeGeometry = new THREE.BoxGeometry(4, 4, 4);
+        var cubeMaterial = new THREE.MeshLambertMaterial({color: 0x00ee22});
+        for(var i = 0; i < (planeGeometry.parameters.height / 5); i++) {
+            for(var j=0; j < (planeGeometry.parameters.width / 5); j++) {
+                var cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+                cube.position.z = -(planeGeometry.parameters.height / 2) + 2 + (i * 5);
+                cube.position.x = -(planeGeometry.parameters.width / 2) + 2 + (j * 5);
+                cube.position.y = 2;
+                scene.add(cube);
+            }
+        }
+
+        var lookAtGeometry = new THREE.SphereGeometry(2);   //반지름 2짜리 원 지오메트리생성
+        var lookAtMesh = new THREE.Mesh(lookAtGeometry, new THREE.MeshLambertMaterial({color: 0xff0000}));
+        scene.add(lookAtMesh);
+
+        var directionalLight = new THREE.DirectionalLight(0xffffff, 0.7);
+        directionalLight.position.set(-20, 40, 60);
+        scene.add(directionalLight);
+
+
+        // add subtle ambient lighting
+        var ambientLight = new THREE.AmbientLight(0x292929);
+        scene.add(ambientLight);
+
+        camera.lookAt(scene.position);  // 카메라가 scene의 중앙을 바라보도록 설정한다.
+
+        var controler = {
+            switchCamera: function() {
+
+                if(camera instanceof THREE.PerspectiveCamera) { // 원근 카메라일 경우
+                    console.log(window.innerWidth / -10);
+                    camera = new THREE.OrthographicCamera(window.innerWidth / -10, window.innerWidth / 10, window.innerHeight / 16, window.innerHeight / -16, -100, 1000);
+                    camera.position.set(120, 60, 180);
+                    camera.lookAt(scene.position);  // 카메라가 scene의 중앙을 바라보도록 설정한다.
+                    this.perspective = "Orthographic";
+                } else {
+                    // 1번째 인자 시야각(FOV) : 45 사람인경우 180정도 FOV, 새같은 경우 360인경우도 있다. 보통 컴퓨터 스크린에선 60-90, 추천은 50
+                    // 2번째 인자 랜더링 화면의 수평, 수직간 종횡비 (aspect):  추천 window.innerWidth / window.innerHeight
+                    // 3번째 인자 근거리면 근접거리 (Near) : threejs가 scene를 카메라와 얼마나 가까이에서 랜더링 할지 설정한다. 추천 0.1
+                    // 4번째 인자 카메라에서 볼수 있는 거리 (far) : 추천 1000
+                    camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000, 0.5);    // 원근 카메라
+                    camera.position.set(120, 60, 180);
+                    camera.lookAt(scene.position);  // 카메라가 scene의 중앙을 바라보도록 설정한다.
+                    this.perspective = "Perspective";
+                }
+            }
+        }
+
+        var gui = new dat.GUI();
+        gui.add(controler, 'switchCamera')
+
+        document.getElementById("webgl-output").appendChild(renderer.domElement);
+        renderScene();
+
+        var step = 0;
+        function renderScene() {
+            stats.update(); // 새로운 랜더링시에 stats에 update함수를 통해 알린다.
+
+            step += 0.02;
+            if(camera instanceof THREE.Camera) {
+                var x = 10 + (100 * (Math.sin(step)));
+                camera.lookAt(new THREE.Vector3(x, 10, 0));
+                lookAtMesh.position.copy(new THREE.Vector3(x, 10, 0));
+            }
+
+            // requestAnimationFrame은 정해진 간격으로 함수가 호출되도록 지정한다. 애니메이션이 계속 지속되기 위해서 또 requestAnimationFrame을 호출하도록 설정햇다.
+            requestAnimationFrame(renderScene);
+            renderer.render(scene, camera);
+        };
+    };
+
+    // frame표시 화면 초기화
+    function initStats() {
+        var stats = new Stats();
+        stats.setMode(0);
+        stats.domElement.style.position = 'absolute';
+        stats.domElement.style.left = '0px';
+        stats.domElement.style.top = '0px';
+        document.getElementById('stats-output').appendChild(stats.domElement);
+        return stats;
+    }
+
+    function onResize() {
+        // 카메라가 보는 화면의 종횡비 설정
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();    // 카메라 종횡비 적용
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    window.onload = init;
+    window.addEventListener('resize', onResize, false);
+</script>
+</body>
+</html>

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>example3 - animation</title>
+    <title>example4 - dat.Gui</title>
 
     <style>
         body {
@@ -22,17 +22,30 @@
 <!-- animation Frame 측정을 위한 lib -->
 <script src="../resources/stats.min.js"></script>
 
+<!-- test를 위한 값의 변경을 쉽게 해주는 lib -->
+<script src="../resources/dat.gui.min.js"></script>
+
 <!-- Three.js 예제 구동 스크립트 -->
 <script>
+    // rotationSpeed, bouncingSpeed 값을 가진 인스턴스
+    var controls = {
+        rotationSpeed: 0.02,
+        bouncingSpeed: 0.03
+    };
+
     /**
      * 주요 포인트
-     * stats를 사용한 frame 표시
-     * requestAnimationFrame를 사용해 랜더 반복 설정
-     * 삼각함수 cos, sin
+     * https://github.com/dataarts/dat.gui를 사용하여 각 항목의 속성을 수정하는 방식
+     * gui를 생성하고 설정하는 방식 참고.
      */
     function init() {
-
+        // stats 초기화
         var stats = initStats();
+
+        // datGui 초기화
+        var gui = new dat.GUI();
+        gui.add(controls, 'bouncingSpeed', 0, 0.5); // 최소값0, 최대값 0.5 설정
+        gui.add(controls, 'rotationSpeed', 0, 0.5);
 
         // scene는 랜더링할 모든 객체와 사용할 모든 광원을 저장하는데 사용되는 컨테이너. 즉 scene가 없으면 아무것도 렌더링 할 수 없다.
         var scene = new THREE.Scene();
@@ -53,7 +66,6 @@
 
         // plane : 배경으로 사용할 2차원 사각형
         var planeGeometry = new THREE.PlaneGeometry(60, 20);    //폭은 60, 넓이 20 설정
-//      var planeMaterial = new THREE.MeshBasicMaterial({color:0xcccccc});  // 색깔설정
         var planeMaterial = new THREE.MeshLambertMaterial({color:0xcccccc});  // SpotLight(광원을 쓰려먼 MeshLambertMaterial을 사용해야한다.
         var plane = new THREE.Mesh(planeGeometry, planeMaterial);   // Mesh를 통해 결합
 
@@ -66,7 +78,6 @@
 
         // cube : 빨간색 정육면체
         var cubeGeometry = new THREE.BoxGeometry(4, 4, 4);
-//      var cubeMaterial = new THREE.MeshBasicMaterial({color: 0xff0000, wireframe: true}); //객체가 아닌 wireframe형태로 랜더링 되도록 설정.
         var cubeMaterial = new THREE.MeshLambertMaterial({color: 0xff0000}); // SpotLight(광원을 쓰려먼 MeshLambertMaterial을 사용해야한다.
         var cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
 
@@ -78,7 +89,6 @@
 
         // sphere : 파란색 구체
         var sphereGeometry = new THREE.SphereGeometry(4, 20, 20);
-//      var sphereMaterial = new THREE.MeshBasicMaterial({color: 0x7777ff, wireframe: true});
         var sphereMaterial = new THREE.MeshLambertMaterial({color: 0x7777ff}); // SpotLight(광원을 쓰려먼 MeshLambertMaterial을 사용해야한다.
         var sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
         sphere.position.x = 20;
@@ -103,13 +113,12 @@
             stats.update(); // 새로운 랜더링시에 stats에 update함수를 통해 알린다.
 
             // 빨간 상자를 x,y,z를 0.02씩 변하게 한다.
-            cube.rotation.x += 0.02;
-            cube.rotation.y += 0.02;
-            cube.rotation.z += 0.02;
+            cube.rotation.x += controls.rotationSpeed;
+            cube.rotation.y += controls.rotationSpeed;
+            cube.rotation.z += controls.rotationSpeed;
 
-            step += 0.03;
-//            console.log(step);
-//            console.log(Math.cos(step));
+            step += controls.bouncingSpeed;
+
             sphere.position.x = 20 + ( 10 * (Math.cos(step)));
             sphere.position.y = 2 + ( 10 * Math.abs(Math.sin(step)));
 

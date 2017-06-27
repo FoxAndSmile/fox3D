@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>example3 - animation</title>
+    <title>example1 - AmbientLight</title>
 
     <style>
         body {
@@ -22,27 +22,34 @@
 <!-- animation Frame 측정을 위한 lib -->
 <script src="../resources/stats.min.js"></script>
 
+<!-- test를 위한 값의 변경을 쉽게 해주는 lib -->
+<script src="../resources/dat.gui.min.js"></script>
+
 <!-- Three.js 예제 구동 스크립트 -->
 <script>
     /**
      * 주요 포인트
-     * stats를 사용한 frame 표시
-     * requestAnimationFrame를 사용해 랜더 반복 설정
-     * 삼각함수 cos, sin
+     * THREE.AmbientLight를 알아본다
+     * gui.dat에 color형태를 추가 할 수 있다.
+     * AmbientLight는 별도 위치없이 전체에 적용된다.
+     * THREE.Color를 알아본다.
      */
-    function init() {
 
+    var camera, scene, renderer;
+
+    function init() {
+        // stats 초기화
         var stats = initStats();
 
         // scene는 랜더링할 모든 객체와 사용할 모든 광원을 저장하는데 사용되는 컨테이너. 즉 scene가 없으면 아무것도 렌더링 할 수 없다.
-        var scene = new THREE.Scene();
+        scene = new THREE.Scene();
 
         // camera는 랜더링 했을때 어떻게 화면에 보여질 것인지 정의.
-        var camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
 
         // renderer는 scene객체가 camera객체의 각도에 따라 브라우저에 어떻게 보이는지 산출하는 역할을 담당.
         // WebGLRender()는 객체를 렌더링 할때 그래픽 카드를 사용하도록 한다는 설정. SVG, CANVAS기반으로 렌더링 할 수 있지만 권장하지 않는다. 이것은 CPU에 과도한 부하를 주거나 material, shadow같은 기능을 사용할 수 없기 때문이다.
-        var renderer = new THREE.WebGLRenderer();
+        renderer = new THREE.WebGLRenderer();
         renderer.setClearColor(0xFFFFFF);   // 배경색을 흰색으로 설정
         renderer.setSize(window.innerWidth, window.innerHeight);    // 렌더링 크기를 설정.
         renderer.shadowMapEnabled = true;   // 그림자를 사용하겟다고 renderer에 설정한다. 그림자를 사용할경우 이 설정과 그림자를 사용할 객체에 각각의 객체 타입별로 그림자 설정을 해줌된다.
@@ -53,7 +60,6 @@
 
         // plane : 배경으로 사용할 2차원 사각형
         var planeGeometry = new THREE.PlaneGeometry(60, 20);    //폭은 60, 넓이 20 설정
-//      var planeMaterial = new THREE.MeshBasicMaterial({color:0xcccccc});  // 색깔설정
         var planeMaterial = new THREE.MeshLambertMaterial({color:0xcccccc});  // SpotLight(광원을 쓰려먼 MeshLambertMaterial을 사용해야한다.
         var plane = new THREE.Mesh(planeGeometry, planeMaterial);   // Mesh를 통해 결합
 
@@ -64,9 +70,9 @@
         plane.receiveShadow = true; // 그림자 사용한다.
         scene.add(plane);
 
+
         // cube : 빨간색 정육면체
-        var cubeGeometry = new THREE.BoxGeometry(4, 4, 4);
-//      var cubeMaterial = new THREE.MeshBasicMaterial({color: 0xff0000, wireframe: true}); //객체가 아닌 wireframe형태로 랜더링 되도록 설정.
+        var cubeGeometry = new THREE.BoxGeometry(5, 5, 5);  // x, y, z
         var cubeMaterial = new THREE.MeshLambertMaterial({color: 0xff0000}); // SpotLight(광원을 쓰려먼 MeshLambertMaterial을 사용해야한다.
         var cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
 
@@ -78,7 +84,6 @@
 
         // sphere : 파란색 구체
         var sphereGeometry = new THREE.SphereGeometry(4, 20, 20);
-//      var sphereMaterial = new THREE.MeshBasicMaterial({color: 0x7777ff, wireframe: true});
         var sphereMaterial = new THREE.MeshLambertMaterial({color: 0x7777ff}); // SpotLight(광원을 쓰려먼 MeshLambertMaterial을 사용해야한다.
         var sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
         sphere.position.x = 20;
@@ -86,6 +91,12 @@
         sphere.position.z = 2;
         sphere.castShadow = true;
         scene.add(sphere);
+
+        // ambientLight 적용
+        // ambientLight는 특정 위치 같은게 없이 전체 적용된다 그렇기 때문에 생성하고 Scene에 add해주면된다.
+        var ambiColor = "#0c0c0c";
+        var ambientLight = new THREE.AmbientLight(ambiColor);
+        scene.add(ambientLight);
 
         // 광원 기능 추가, 광원이 적용될 해당 객체들은 MeshLambertMaterial을 설정해야한다.
         var sportLight = new THREE.SpotLight(0xffffff);
@@ -98,25 +109,25 @@
         camera.position.z = 30;
         camera.lookAt(scene.position);  // 카메라가 scene의 중앙을 바라보도록 설정한다.
 
-        var step = 0;
+        var controls = {
+            ambientColor: ambiColor
+        }
+
+        // datGui 초기화
+        var gui = new dat.GUI();
+        // addColor형태를 지원한다, onChange는 만약 값을 변경시 이벤트를 호출한다.
+        gui.addColor(controls, 'ambientColor').onChange(function(e) {
+            // 객체를 생성후 색상을 변경시는 새로운 THREE.Color를 만들어 적용하거나, 현재 객체가 사용중인 THREE.Color의 내부 속성을 변경한다.
+           ambientLight.color = new THREE.Color(e);
+        });
+
         function renderScene() {
             stats.update(); // 새로운 랜더링시에 stats에 update함수를 통해 알린다.
-
-            // 빨간 상자를 x,y,z를 0.02씩 변하게 한다.
-            cube.rotation.x += 0.02;
-            cube.rotation.y += 0.02;
-            cube.rotation.z += 0.02;
-
-            step += 0.03;
-//            console.log(step);
-//            console.log(Math.cos(step));
-            sphere.position.x = 20 + ( 10 * (Math.cos(step)));
-            sphere.position.y = 2 + ( 10 * Math.abs(Math.sin(step)));
 
             // requestAnimationFrame은 정해진 간격으로 함수가 호출되도록 지정한다. 애니메이션이 계속 지속되기 위해서 또 requestAnimationFrame을 호출하도록 설정햇다.
             requestAnimationFrame(renderScene);
             renderer.render(scene, camera);
-        }
+        };
 
         document.getElementById("webgl-output").appendChild(renderer.domElement);
         renderScene();
@@ -133,7 +144,16 @@
         return stats;
     }
 
+    function onResize() {
+        // 카메라가 보는 화면의 종횡비 설정
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();    // 카메라 종횡비 적용
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
     window.onload = init;
+
+    window.addEventListener('resize', onResize, false);
 </script>
 </body>
 </html>

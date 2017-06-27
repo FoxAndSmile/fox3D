@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>example3 - animation</title>
+    <title>example2 - 효과(안개)와 마테리얼 오버라이드</title>
 
     <style>
         body {
@@ -22,27 +22,81 @@
 <!-- animation Frame 측정을 위한 lib -->
 <script src="../resources/stats.min.js"></script>
 
+<!-- test를 위한 값의 변경을 쉽게 해주는 lib -->
+<script src="../resources/dat.gui.min.js"></script>
+
 <!-- Three.js 예제 구동 스크립트 -->
 <script>
     /**
      * 주요 포인트
-     * stats를 사용한 frame 표시
-     * requestAnimationFrame를 사용해 랜더 반복 설정
-     * 삼각함수 cos, sin
+     * Scene의 fog(안개) 설정 방식
+     * Scene의 overrideMaterial이 모든 마테리얼을 덮어버린다는 것을 알아야 한다.
      */
-    function init() {
 
+    var camera, scene, renderer;
+
+    function init() {
+        // stats 초기화
         var stats = initStats();
 
+        // rotationSpeed, bouncingSpeed 값을 가진 인스턴스
+        var controls = {
+            rotationSpeed: 0.02,
+            bouncingSpeed: 0.03,
+            numberOfObjects: 0,
+            addCube: function() {
+                var cubeSize = Math.ceil((Math.random()) * 3), // 올림 즉 1부터 3값중 랜덤 생성
+                    cubeGeometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize),
+                    cubeMaterial = new THREE.MeshLambertMaterial({color: Math.random() * 0xffffff}),    // 랜덤값으로 색지정
+                    cube = new THREE.Mesh(cubeGeometry, cubeMaterial);  // cube 생성
+
+                console.log(cubeSize);
+                cube.castShadow = true;
+                // 직접 객체 접근을 위해서 name설정
+                // name설정시 THREE.Scene.getObjectByName(name)을 사용해서 특정한 객체를 직접 추출 할 수 있다.
+                cube.name = 'cube-' + scene.children.length;
+                cube.position.x = -30 + Math.round((Math.random() * planeGeometry.parameters.width));
+                cube.position.y = Math.round((Math.random() * 5));
+                cube.position.z = -20 + Math.round((Math.random() * planeGeometry.parameters.height));
+
+                scene.add(cube);    // cube를 scene에 추가
+                this.numberOfObjects = scene.children.length;
+            },
+            removeCube: function() {
+                var allChildren = scene.children;
+                var lastObject = allChildren[allChildren.length - 1];   // scene.children에서 마지막으로 추가된 항목을 구한다.
+                if(lastObject instanceof THREE.Mesh) {  // 항목이 THREE.Mesh항목을 상속한다면 그것은 카메라,조명등이 아닌 큐브나 이런 그림성 이다.
+                    scene.remove(lastObject);
+                    this.numberOfObjects = scene.children.length;
+                }
+            },
+            outputObjects: function() {
+                console.log(scene.children);
+            }
+        };
+
+        // datGui 초기화
+        var gui = new dat.GUI();
+        gui.add(controls, 'bouncingSpeed', 0, 0.5); // 최소값0, 최대값 0.5 설정
+        gui.add(controls, 'rotationSpeed', 0, 0.5);
+        gui.add(controls, 'addCube');
+        gui.add(controls, 'removeCube');
+        gui.add(controls, 'outputObjects');
+        gui.add(controls, 'numberOfObjects').listen();
+
         // scene는 랜더링할 모든 객체와 사용할 모든 광원을 저장하는데 사용되는 컨테이너. 즉 scene가 없으면 아무것도 렌더링 할 수 없다.
-        var scene = new THREE.Scene();
+        scene = new THREE.Scene();
+//        scene.fog = new THREE.Fog(0xffffff, 0.015, 100);    // 안개효과 적용 하얀색에 0.015부터 100까지의 짙어짐을 적용했다.
+        scene.fog = new THREE.FogExp2(0xffffff, 0.01);  // 하얀색 안개에 밀도는 0.01로 지정했다.
+        // Scene의 overrideMaterial은 Scene의 모든 항목에 이 overrideMaterial에 설정한 마테리얼로 사용하도록 한다. 즉 각항목에 설정한 Material은 다 무시된다.
+        scene.overrideMaterial = new THREE.MeshLambertMaterial({color: 0xffffff});
 
         // camera는 랜더링 했을때 어떻게 화면에 보여질 것인지 정의.
-        var camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
 
         // renderer는 scene객체가 camera객체의 각도에 따라 브라우저에 어떻게 보이는지 산출하는 역할을 담당.
         // WebGLRender()는 객체를 렌더링 할때 그래픽 카드를 사용하도록 한다는 설정. SVG, CANVAS기반으로 렌더링 할 수 있지만 권장하지 않는다. 이것은 CPU에 과도한 부하를 주거나 material, shadow같은 기능을 사용할 수 없기 때문이다.
-        var renderer = new THREE.WebGLRenderer();
+        renderer = new THREE.WebGLRenderer();
         renderer.setClearColor(0xFFFFFF);   // 배경색을 흰색으로 설정
         renderer.setSize(window.innerWidth, window.innerHeight);    // 렌더링 크기를 설정.
         renderer.shadowMapEnabled = true;   // 그림자를 사용하겟다고 renderer에 설정한다. 그림자를 사용할경우 이 설정과 그림자를 사용할 객체에 각각의 객체 타입별로 그림자 설정을 해줌된다.
@@ -53,7 +107,6 @@
 
         // plane : 배경으로 사용할 2차원 사각형
         var planeGeometry = new THREE.PlaneGeometry(60, 20);    //폭은 60, 넓이 20 설정
-//      var planeMaterial = new THREE.MeshBasicMaterial({color:0xcccccc});  // 색깔설정
         var planeMaterial = new THREE.MeshLambertMaterial({color:0xcccccc});  // SpotLight(광원을 쓰려먼 MeshLambertMaterial을 사용해야한다.
         var plane = new THREE.Mesh(planeGeometry, planeMaterial);   // Mesh를 통해 결합
 
@@ -65,8 +118,7 @@
         scene.add(plane);
 
         // cube : 빨간색 정육면체
-        var cubeGeometry = new THREE.BoxGeometry(4, 4, 4);
-//      var cubeMaterial = new THREE.MeshBasicMaterial({color: 0xff0000, wireframe: true}); //객체가 아닌 wireframe형태로 랜더링 되도록 설정.
+        var cubeGeometry = new THREE.BoxGeometry(5, 5, 5);  // x, y, z
         var cubeMaterial = new THREE.MeshLambertMaterial({color: 0xff0000}); // SpotLight(광원을 쓰려먼 MeshLambertMaterial을 사용해야한다.
         var cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
 
@@ -78,7 +130,6 @@
 
         // sphere : 파란색 구체
         var sphereGeometry = new THREE.SphereGeometry(4, 20, 20);
-//      var sphereMaterial = new THREE.MeshBasicMaterial({color: 0x7777ff, wireframe: true});
         var sphereMaterial = new THREE.MeshLambertMaterial({color: 0x7777ff}); // SpotLight(광원을 쓰려먼 MeshLambertMaterial을 사용해야한다.
         var sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
         sphere.position.x = 20;
@@ -102,21 +153,27 @@
         function renderScene() {
             stats.update(); // 새로운 랜더링시에 stats에 update함수를 통해 알린다.
 
-            // 빨간 상자를 x,y,z를 0.02씩 변하게 한다.
-            cube.rotation.x += 0.02;
-            cube.rotation.y += 0.02;
-            cube.rotation.z += 0.02;
+            // traverse는 scene의 하위 항목을 모두 탐색할때 유용히 쓸수 있는 함수입니다.
+            // 인자로 함수를 받는데 함수에 넘겨지는 인자는 Scene의 하위 트리 항목의 객체들입니다. Scene나 THREE에서 하위로 추가되는 항목들은 Tree형태의 구조를 띄고 있습니다.
+            // 그리고 이런 부모의 하위의 모든 트리들을 다 일일이 순회하면서 파라메터로 넘겨줍니다.
+            scene.traverse(function(cube) {
+               if(cube instanceof THREE.Mesh && cube != plane) { // 광원, 효과와 plane형태가 아닌 모든 항목을 순회 하면서 각 항목의 rotation값을 변경합니다.
+                   cube.rotation.x += controls.rotationSpeed;
+                   cube.rotation.y += controls.rotationSpeed;
+                   cube.rotation.z += controls.rotationSpeed;
+               }
+            });
 
-            step += 0.03;
-//            console.log(step);
-//            console.log(Math.cos(step));
+            step += controls.bouncingSpeed;
+
             sphere.position.x = 20 + ( 10 * (Math.cos(step)));
             sphere.position.y = 2 + ( 10 * Math.abs(Math.sin(step)));
 
             // requestAnimationFrame은 정해진 간격으로 함수가 호출되도록 지정한다. 애니메이션이 계속 지속되기 위해서 또 requestAnimationFrame을 호출하도록 설정햇다.
             requestAnimationFrame(renderScene);
             renderer.render(scene, camera);
-        }
+        };
+
 
         document.getElementById("webgl-output").appendChild(renderer.domElement);
         renderScene();
@@ -133,7 +190,16 @@
         return stats;
     }
 
+    function onResize() {
+        // 카메라가 보는 화면의 종횡비 설정
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();    // 카메라 종횡비 적용
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
     window.onload = init;
+
+    window.addEventListener('resize', onResize, false);
 </script>
 </body>
 </html>
